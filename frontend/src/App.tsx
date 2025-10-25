@@ -4,37 +4,91 @@ import './App.css'
 function App() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<string[]>([])
-
+  const [isSending, setIsSending] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isPromptUsed, setIsPromptUsed] = useState(false)
+ 
   const sendMessage = async () => {
-    const res = await fetch("http://localhost:8000/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: input }),
-    })
-    const data = await res.json()
-    setMessages((m) => [...m, "👤 " + input, "🤖 " + data.response])
-    setInput('')
+    if (!input.trim() || isSending) return
+    try {
+      setIsSending(true)
+      setIsLoading(true)
+      setIsPromptUsed(true)
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: input }),
+      })
+      const data = await res.json()
+      setMessages((m) => [...m, data.response])
+      setInput('')
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsSending(false)
+      setIsLoading(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault()
+      void sendMessage()
+    }
   }
 
   return (
-    <div className='p-6 max-w-xl mx-auto'>
-      <h1 className='text-xl font-bold mb-4'>Local LLM Chatbot</h1>
-      <div className="border rounded p-2 h-80 overflow-y-auto bg-gray-50">
-        {messages.map((m, i) => <div key={i}>{m}</div>)}
-      </div>
-      <div className="mt-4 flex">
-        <input
-          className="border flex-1 p-2"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-        />
-        <button
-          className="ml-2 bg-blue-500 text-white px-4"
-          onClick={sendMessage}
-        >
-          Send
-        </button>
-      </div>
+    <div className="app-root">
+      <header className="app-header">
+        <h1>Local LLm Chatbot</h1>
+      </header>
+
+      <main>
+        {isLoading ? (
+          <div className="loading-screen">
+            <p>Thinking...</p>
+          </div>
+        ) : (
+          <>
+            <div className="form-container">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void sendMessage()
+                }}
+                className="form-row"
+              >
+                {isPromptUsed ? (
+                  <textarea
+                    className="prompt-used"
+                    rows={1}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Let's ask! Submit your question Enter+Shift"
+                  />
+                ) : (
+                  <textarea
+                    className="prompt"
+                    rows={1}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Let's ask! Submit your question Enter+Shift"
+                  />
+                )}
+              </form>
+            </div>
+            <div className="messages-container">
+              {messages.map((message, index) => (
+                <div key={index} className="message">
+                  {message}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </main>
     </div>
   )
 }
